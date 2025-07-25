@@ -73,6 +73,8 @@ src/
 
 ## Clean Architecture
 
+![Diagrama da Arquitetura](image.png)
+
 O projeto segue os princípios da Clean Architecture:
 
 1. **Camada de Domínio**
