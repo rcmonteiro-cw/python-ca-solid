@@ -1,7 +1,7 @@
 """
 Implementação mock do serviço de notificação para testes.
 """
-from typing import List
+from typing import List, ClassVar
 
 from src.domain.interfaces.notification_service import (
     NotificationService,
@@ -14,8 +14,10 @@ from src.domain.interfaces.notification_service import (
 class MockNotificationService(NotificationService):
     """Implementação mock do serviço de notificação para testes"""
 
+    # Variável de classe para manter o estado entre instâncias
+    _notifications_sent: ClassVar[List[tuple[NotificationRecipient, NotificationContent]]] = []
+
     def __init__(self, should_fail: bool = False):
-        self.notifications_sent: List[tuple[NotificationRecipient, NotificationContent]] = []
         self.should_fail = should_fail
 
     def send_notification(
@@ -24,7 +26,7 @@ class MockNotificationService(NotificationService):
         content: NotificationContent
     ) -> NotificationResult:
         """Simula o envio de uma notificação"""
-        self.notifications_sent.append((recipient, content))
+        self._notifications_sent.append((recipient, content))
 
         if self.should_fail:
             return NotificationResult(
@@ -36,7 +38,7 @@ class MockNotificationService(NotificationService):
         return NotificationResult(
             success=True,
             recipient=recipient,
-            external_id=f"mock_{len(self.notifications_sent)}"
+            external_id=f"mock_{len(self._notifications_sent)}"
         )
 
     def send_bulk_notifications(
@@ -50,6 +52,12 @@ class MockNotificationService(NotificationService):
             for recipient in recipients
         ]
 
-    def get_notifications_sent(self) -> List[tuple[NotificationRecipient, NotificationContent]]:
+    @classmethod
+    def get_notifications_sent(cls) -> List[tuple[NotificationRecipient, NotificationContent]]:
         """Retorna a lista de notificações enviadas"""
-        return self.notifications_sent 
+        return cls._notifications_sent
+
+    @classmethod
+    def clear_notifications(cls) -> None:
+        """Limpa a lista de notificações enviadas"""
+        cls._notifications_sent.clear() 

@@ -15,6 +15,14 @@ from src.domain.interfaces.notification_service import (
 )
 from src.domain.entities.order import Order, OrderItem
 from src.infrastructure.services.mock_notification_service import MockNotificationService
+from src.infrastructure.config.notification_config import NotificationConfig
+
+
+@pytest.fixture(autouse=True)
+def clear_notifications():
+    """Limpa as notificações antes de cada teste"""
+    MockNotificationService.clear_notifications()
+    yield
 
 
 def test_mock_notification_service():
@@ -38,18 +46,23 @@ def test_mock_notification_service():
     # Verifica o resultado
     assert result.success is True
     assert result.external_id == "mock_1"
-    assert len(service.get_notifications_sent()) == 1
+    
+    notifications = MockNotificationService.get_notifications_sent()
+    assert len(notifications) == 1
 
-    sent_recipient, sent_content = service.get_notifications_sent()[0]
+    sent_recipient, sent_content = notifications[0]
     assert sent_recipient.identifier == "test@example.com"
     assert sent_content.subject == "Test Subject"
 
 
 def test_notify_order_created_use_case():
     """Testa o use case de notificação de pedido criado"""
-    # Cria o serviço mock
-    notification_service = MockNotificationService()
-    use_case = NotifyOrderCreatedUseCase(notification_service)
+    # Configura a factory e o serviço
+    factory = NotificationConfig.create_factory()
+    config = NotificationConfig.get_mock_config()
+
+    # Cria o use case
+    use_case = NotifyOrderCreatedUseCase(factory, config)
 
     # Cria um pedido de teste
     order = Order(
@@ -73,17 +86,21 @@ def test_notify_order_created_use_case():
     input_dto = NotifyOrderCreatedInput(
         order=order,
         customer_email="customer@example.com",
-        customer_name="John Doe"
+        customer_name="John Doe",
+        notification_type="mock"  # Especifica o tipo de notificação
     )
     response = use_case.execute(input_dto)
 
     # Verifica o resultado
     assert response.success is True
     assert response.data.success is True
-    assert len(notification_service.get_notifications_sent()) == 1
+
+    # Verifica a notificação enviada
+    notifications = MockNotificationService.get_notifications_sent()
+    assert len(notifications) == 1
 
     # Verifica o conteúdo da notificação
-    sent_recipient, sent_content = notification_service.get_notifications_sent()[0]
+    sent_recipient, sent_content = notifications[0]
     assert sent_recipient.identifier == "customer@example.com"
     assert sent_recipient.name == "John Doe"
     assert "Pedido 123 criado com sucesso!" in sent_content.subject
@@ -94,9 +111,12 @@ def test_notify_order_created_use_case():
 
 def test_notify_order_created_use_case_with_failure():
     """Testa o use case quando o serviço de notificação falha"""
-    # Cria o serviço mock configurado para falhar
-    notification_service = MockNotificationService(should_fail=True)
-    use_case = NotifyOrderCreatedUseCase(notification_service)
+    # Configura a factory e o serviço com falha
+    factory = NotificationConfig.create_factory()
+    config = {"should_fail": True}  # Configura o mock para falhar
+
+    # Cria o use case
+    use_case = NotifyOrderCreatedUseCase(factory, config)
 
     # Cria um pedido de teste
     order = Order(
@@ -115,11 +135,11 @@ def test_notify_order_created_use_case_with_failure():
     input_dto = NotifyOrderCreatedInput(
         order=order,
         customer_email="customer@example.com",
-        customer_name="John Doe"
+        customer_name="John Doe",
+        notification_type="mock"
     )
     response = use_case.execute(input_dto)
 
     # Verifica o resultado
     assert response.success is False
-    assert "Falha simulada no envio" in response.error
-    assert len(notification_service.get_notifications_sent()) == 1 
+    assert "Falha simulada no envio" in response.error 

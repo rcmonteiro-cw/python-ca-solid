@@ -12,6 +12,7 @@ from src.domain.interfaces.notification_service import (
     NotificationType,
     NotificationResult
 )
+from src.domain.interfaces.notification_factory import NotificationFactory
 from src.domain.entities.order import Order
 
 
@@ -21,17 +22,29 @@ class NotifyOrderCreatedInput:
     order: Order
     customer_email: str
     customer_name: str
+    notification_type: str = "email"  # Tipo de notificação a ser usado
 
 
 class NotifyOrderCreatedUseCase(UseCase[NotifyOrderCreatedInput, NotificationResult]):
     """Use case para notificar sobre a criação de um pedido"""
 
-    def __init__(self, notification_service: NotificationService):
-        self.notification_service = notification_service
+    def __init__(
+        self,
+        notification_factory: NotificationFactory,
+        notification_config: dict
+    ):
+        self.notification_factory = notification_factory
+        self.notification_config = notification_config
 
     def execute(self, request: NotifyOrderCreatedInput) -> Response[NotificationResult]:
         """Executa o use case"""
         try:
+            # Cria o serviço de notificação usando a factory
+            notification_service = self.notification_factory.create_notification_service(
+                request.notification_type,
+                self.notification_config
+            )
+
             # Cria o destinatário
             recipient = NotificationRecipient(
                 identifier=request.customer_email,
@@ -65,7 +78,7 @@ Obrigado por sua compra!
             )
 
             # Envia a notificação
-            result = self.notification_service.send_notification(recipient, content)
+            result = notification_service.send_notification(recipient, content)
 
             return Response(
                 success=result.success,
